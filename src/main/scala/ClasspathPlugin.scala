@@ -32,6 +32,7 @@ object ClasspathPlugin extends Plugin {
 	// BETTER use exportedProducts instead of products?
 	private def assetsTask:Initialize[Task[Seq[Asset]]]	= (
 		Keys.streams,
+		Keys.name,
 		Keys.products in Runtime,
 		Keys.fullClasspath in Runtime,
 		Keys.cacheDirectory,
@@ -40,6 +41,7 @@ object ClasspathPlugin extends Plugin {
 		
 	private def assetsTaskImpl(
 		streams:TaskStreams,
+		name:String,
 		products:Seq[File],
 		fullClasspath:Classpath,
 		cacheDirectory:File,
@@ -50,10 +52,10 @@ object ClasspathPlugin extends Plugin {
 		streams.log info ("creating classpath directory jars")
 		val directoryAssets	= directories.zipWithIndex map { case (source, index) =>
 			val main	= products contains source
-			// NOTE the jar should be named after the artifact it comes from
-			// TODO goes wrong if a dependency named 0.jar exists
+			// TODO goes wrong if a dependency exists with the wrong name
 			val cache	= cacheDirectory / cacheName / index.toString
-			val target	= outputDirectory / (index + ".jar")
+			// BETTER use the name of the project the classes really come from
+			val target	= outputDirectory / (name + "-" + index + ".jar")
 			val fresh	= jarDirectory(source, cache, target)
 			Asset(main, fresh, target)
 		}
