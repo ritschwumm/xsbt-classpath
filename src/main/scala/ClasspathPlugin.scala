@@ -25,10 +25,11 @@ object ClasspathPlugin extends Plugin {
 	val classpathOutput	= SettingKey[File]("classpath-output")
 		
 	// NOTE these need to be imported in build.sbt
-	lazy val classpathSettings:Seq[Project.Setting[_]]	= Seq(
-		classpathAssets	<<= assetsTask,
-		classpathOutput	<<= Keys.crossTarget { _ / outputName }
-	)
+	lazy val classpathSettings:Seq[Def.Setting[_]]	=
+			Seq(
+				classpathAssets	<<= assetsTask,
+				classpathOutput	<<= Keys.crossTarget { _ / outputName }
+			)
 	
 	//------------------------------------------------------------------------------
 	
@@ -36,12 +37,11 @@ object ClasspathPlugin extends Plugin {
 	// BETTER use exportedProducts instead of products?
 	//	that's a Classpath aka Seq[Attributed[File]] instead of Seq[File]
 	//	Classpath#files and Build.data can extract the data
-	private def assetsTask:Initialize[Task[Seq[ClasspathAsset]]]	= (
+	private def assetsTask:Def.Initialize[Task[Seq[ClasspathAsset]]]	= (
 		Keys.streams,
 		Keys.name,
 		Keys.products in Runtime,
 		Keys.fullClasspath in Runtime,
-		Keys.cacheDirectory,
 		classpathOutput
 	) map assetsTaskImpl
 		
@@ -50,7 +50,6 @@ object ClasspathPlugin extends Plugin {
 		name:String,
 		products:Seq[File],
 		fullClasspath:Classpath,
-		cacheDirectory:File,
 		outputDirectory:File
 	):Seq[ClasspathAsset]	= {
 		val (archives, directories)	= fullClasspath.files.distinct partition ClasspathUtilities.isArchive
@@ -66,10 +65,10 @@ object ClasspathPlugin extends Plugin {
 		// to find out about name clashes
 		val archiveTargets	= archiveAssets map { _.jar } toSet;
 		
-		streams.log info ("creating classpath directory jars to " + outputDirectory)
+		streams.log info ("creating classpath directory jars in " + outputDirectory)
 		val directoryAssets	= directories.zipWithIndex map { case (source, index) =>
 			val main	= products contains source
-			val cache	= cacheDirectory / cacheName / index.toString
+			val cache	= streams.cacheDirectory / cacheName / index.toString
 			// ensure the jarfile does not clash with any of the archive assets from above 
 			def newTarget(resolve:Int):File	= {
 				val candidate	= mkTarget(resolve)

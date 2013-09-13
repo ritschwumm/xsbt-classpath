@@ -1,4 +1,4 @@
-A helper plugin for xsbt compiling jar files for everything on the classpath
+A helper plugin for sbt compiling jar files for everything on the classpath
 
 To build this code, get and install SBT from 
     https://github.com/sbt/sbt
