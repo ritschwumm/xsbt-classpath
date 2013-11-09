@@ -54,7 +54,7 @@ object ClasspathPlugin extends Plugin {
 	):Seq[ClasspathAsset]	= {
 		val (archives, directories)	= fullClasspath.files.distinct partition ClasspathUtilities.isArchive
 		
-		streams.log info ("copying classpath library jars to " + outputDirectory)
+		streams.log info s"copying classpath library jars to ${outputDirectory}"
 		val archiveAssets	= archives map { source =>
 			val main	= products contains source
 			val	target	= outputDirectory / source.getName 
@@ -65,7 +65,7 @@ object ClasspathPlugin extends Plugin {
 		// to find out about name clashes
 		val archiveTargets	= archiveAssets map { _.jar } toSet;
 		
-		streams.log info ("creating classpath directory jars in " + outputDirectory)
+		streams.log info s"creating classpath directory jars in ${outputDirectory}"
 		val directoryAssets	= directories.zipWithIndex map { case (source, index) =>
 			val main	= products contains source
 			val cache	= streams.cacheDirectory / cacheName / index.toString
@@ -85,7 +85,7 @@ object ClasspathPlugin extends Plugin {
 		
 		val assets	= archiveAssets ++ directoryAssets
 		val (updatedAssets, unchangedAssets)	= assets partition { _.updated }
-		streams.log info ("classpath jars: " + updatedAssets.size + " new/changed, " + unchangedAssets.size + " unchanged")
+		streams.log info s"classpath jars: ${updatedAssets.size} new/changed, ${unchangedAssets.size} unchanged"
 		
 		assets
 	}
