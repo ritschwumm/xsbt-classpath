@@ -1,3 +1,5 @@
+import scala.annotation.tailrec
+
 import sbt._
 
 import Keys.Classpath
@@ -26,7 +28,7 @@ object ClasspathPlugin extends Plugin {
 		
 	// NOTE these need to be imported in build.sbt
 	lazy val classpathSettings:Seq[Def.Setting[_]]	=
-			Seq(
+			Vector(
 				classpathAssets	<<= assetsTask,
 				classpathOutput	<<= Keys.crossTarget { _ / outputName }
 			)
@@ -52,53 +54,49 @@ object ClasspathPlugin extends Plugin {
 		fullClasspath:Classpath,
 		outputDirectory:File
 	):Seq[ClasspathAsset]	= {
-		val (archives, directories)	= fullClasspath.files.distinct partition ClasspathUtilities.isArchive
+		// BETTER warn about non-existing?
+		val (directories, archives)	=
+				fullClasspath.files.distinct filter { _.exists } partition { _.isDirectory }
 		
 		streams.log info s"copying classpath library jars to ${outputDirectory}"
-		val archiveAssets	= archives map { source =>
-			val main	= products contains source
-			val	target	= outputDirectory / source.getName 
-			val fresh	= copyArchive(source, target)
-			ClasspathAsset(main, fresh, target)
-		}
+		val archiveAssets	=
+				archives map { source =>
+					val main	= products contains source
+					val	target	= outputDirectory / source.getName 
+					val fresh	= source newerThan target
+					if (fresh) {
+						IO copyFile (source, target) 
+					}
+					ClasspathAsset(main, fresh, target)
+				}
 		
 		// to find out about name clashes
 		val archiveTargets	= archiveAssets map { _.jar } toSet;
 		
 		streams.log info s"creating classpath directory jars in ${outputDirectory}"
-		val directoryAssets	= directories.zipWithIndex map { case (source, index) =>
-			val main	= products contains source
-			val cache	= streams.cacheDirectory / cacheName / index.toString
-			// ensure the jarfile does not clash with any of the archive assets from above 
-			def newTarget(resolve:Int):File	= {
-				val candidate	= mkTarget(resolve)
-				if (archiveTargets contains candidate)	newTarget(resolve+1)
-				else									candidate
-			}
-			// BETTER use the name of the project the classes really come from
-			def mkTarget(resolve:Int):File	= 
-					outputDirectory / (name + "-" + index + (if (resolve != 0) "-" + resolve else "") + ".jar")
-			val target	= newTarget(0)
-			val fresh	= jarDirectory(source, cache, target)
-			ClasspathAsset(main, fresh, target)
-		}
-		
+		val directoryAssets	=
+				directories.zipWithIndex map { case (source, index) =>
+					val main	= products contains source
+					val cache	= streams.cacheDirectory / cacheName / index.toString
+					// ensure the jarfile does not clash with any of the archive assets from above 
+					@tailrec
+					def newTarget(resolve:Int):File	= {
+						// BETTER use the name of the project the classes really come from
+						val candidate	=
+								outputDirectory /
+								(name + "-" + index + (if (resolve != 0) "-" + resolve else "") + ".jar")
+						if (archiveTargets contains candidate)	newTarget(resolve+1)
+						else									candidate
+					}
+					val target	= newTarget(0)
+					val fresh	= ClasspathJarUtil jarDirectory (source, cache, target)
+					ClasspathAsset(main, fresh, target)
+				}
+				
 		val assets	= archiveAssets ++ directoryAssets
-		val (updatedAssets, unchangedAssets)	= assets partition { _.updated }
-		streams.log info s"classpath jars: ${updatedAssets.size} new/changed, ${unchangedAssets.size} unchanged"
+		val (changed, unchanged)	= assets partition { _.updated }
+		streams.log info s"classpath jars: ${changed.size} new/changed, ${unchanged.size} unchanged"
 		
 		assets
-	}
-	
-	/** true if the jar has been created or overwritten because it was changed */
-	private def jarDirectory(sourceDir:File, cacheDir:File, targetFile:File):Boolean	= {
-		ClasspathJarUtil jarDirectory (sourceDir, cacheDir, targetFile)
-	}
-	
-	/** true if the jar has been created or overwritten because it was changed */
-	private def copyArchive(sourceFile:File, targetFile:File):Boolean	= {
-		val fresh	= sourceFile newerThan targetFile
-		if (fresh) { IO copyFile (sourceFile, targetFile) }
-		fresh
 	}
 }
