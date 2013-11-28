@@ -29,8 +29,15 @@ object ClasspathPlugin extends Plugin {
 	// NOTE these need to be imported in build.sbt
 	lazy val classpathSettings:Seq[Def.Setting[_]]	=
 			Vector(
-				classpathAssets	<<= assetsTask,
-				classpathOutput	<<= Keys.crossTarget { _ / outputName }
+				classpathOutput	:= Keys.crossTarget.value / outputName,
+				classpathAssets	:= 
+						assetsTaskImpl(
+							streams			= Keys.streams.value,
+							name			= Keys.name.value,
+							products		= (Keys.products in Runtime).value,
+							fullClasspath	= (Keys.fullClasspath in Runtime).value,
+							outputDirectory	= classpathOutput.value
+						)
 			)
 	
 	//------------------------------------------------------------------------------
@@ -39,14 +46,6 @@ object ClasspathPlugin extends Plugin {
 	// BETTER use exportedProducts instead of products?
 	//	that's a Classpath aka Seq[Attributed[File]] instead of Seq[File]
 	//	Classpath#files and Build.data can extract the data
-	private def assetsTask:Def.Initialize[Task[Seq[ClasspathAsset]]]	= (
-		Keys.streams,
-		Keys.name,
-		Keys.products in Runtime,
-		Keys.fullClasspath in Runtime,
-		classpathOutput
-	) map assetsTaskImpl
-		
 	private def assetsTaskImpl(
 		streams:TaskStreams,
 		name:String,
