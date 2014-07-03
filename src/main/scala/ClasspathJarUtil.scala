@@ -17,7 +17,7 @@ object ClasspathJarUtil {
 	def jarDirectory(sourceDir:File, cacheDir:File, targetFile:File):Boolean	= {
 		implicit def stringMapEquiv:Equiv[Map[File,String]]	= defaultEquiv
 		
-		val sources	= (sourceDir ** -DirectoryFilter).get x (Path relativeTo sourceDir)
+		val sources	= (sourceDir ** -DirectoryFilter).get pair (Path relativeTo sourceDir)
 		
 		def makeJar(sources:Seq[(File,String)], jar:File) {
 			IO delete jar

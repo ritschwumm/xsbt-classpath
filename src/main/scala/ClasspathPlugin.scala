@@ -21,10 +21,8 @@ object ClasspathPlugin extends Plugin {
 		val name:String	= jar.getName
 	}
 	
-	// library jars and jarred directories from the classpath 
-	val classpathAssets	= TaskKey[Seq[ClasspathAsset]]("classpath-assets")
-	// where to put jar files
-	val classpathOutput	= SettingKey[File]("classpath-output")
+	val classpathAssets	= taskKey[Seq[ClasspathAsset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
+	val classpathOutput	= settingKey[File]("where to put jar files")
 		
 	// NOTE these need to be imported in build.sbt
 	lazy val classpathSettings:Seq[Def.Setting[_]]	=
