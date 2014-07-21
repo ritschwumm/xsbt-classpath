@@ -24,14 +24,15 @@ object ClasspathJarUtil {
 			IO zip (sources, jar)
 		}
 		
-		val cachedMakeJar	= inputChanged(cacheDir / "inputs") { (inChanged, inputs:(Map[File,String] :+: FilesInfo[ModifiedFileInfo] :+: HNil)) =>
-			val sources :+: _ :+: HNil = inputs
-			outputChanged(cacheDir / "output") { (outChanged, jar:PlainFileInfo) =>
-				val fresh	= inChanged || outChanged
-				if (fresh) { makeJar(sources.toSeq, jar.file) }
-				fresh
-			}
-		}
+		val cachedMakeJar	=
+				inputChanged(cacheDir / "inputs") { (inChanged, inputs:(Map[File,String] :+: FilesInfo[ModifiedFileInfo] :+: HNil)) =>
+					val sources :+: _ :+: HNil = inputs
+					outputChanged(cacheDir / "output") { (outChanged, jar:PlainFileInfo) =>
+						val fresh	= inChanged || outChanged
+						if (fresh) { makeJar(sources.toSeq, jar.file) }
+						fresh
+					}
+				}
 		val sourcesMap		= sources.toMap
 		val inputs			= sourcesMap :+: lastModified(sourcesMap.keySet.toSet) :+: HNil
 		val fresh:Boolean	= cachedMakeJar(inputs)(() => exists(targetFile))

@@ -8,33 +8,31 @@ import Project.Initialize
 import classpath.ClasspathUtilities
 
 object ClasspathPlugin extends Plugin {
-	private val outputName	= "classpath"
 	private val cacheName	= "classpath"	// classpathAssets.key.label
 	
 	//------------------------------------------------------------------------------
 	
 	case class ClasspathAsset(
 		main:Boolean,
-		updated:Boolean,
 		jar:File
 	) {
 		val name:String	= jar.getName
 	}
 	
 	val classpathAssets	= taskKey[Seq[ClasspathAsset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
-	val classpathOutput	= settingKey[File]("where to put jar files")
+	val classpathCache	= settingKey[File]("where to cache jars made from directories in the classpath")
 		
 	// NOTE these need to be imported in build.sbt
 	lazy val classpathSettings:Seq[Def.Setting[_]]	=
 			Vector(
-				classpathOutput	:= Keys.crossTarget.value / outputName,
+				classpathCache	:= Keys.crossTarget.value / cacheName,
 				classpathAssets	:= 
 						assetsTaskImpl(
 							streams			= Keys.streams.value,
 							name			= Keys.name.value,
 							products		= (Keys.products in Runtime).value,
 							fullClasspath	= (Keys.fullClasspath in Runtime).value,
-							outputDirectory	= classpathOutput.value
+							cacheDirectory	= classpathCache.value
 						)
 			)
 	
@@ -49,30 +47,22 @@ object ClasspathPlugin extends Plugin {
 		name:String,
 		products:Seq[File],
 		fullClasspath:Classpath,
-		outputDirectory:File
+		cacheDirectory:File
 	):Seq[ClasspathAsset]	= {
 		// BETTER warn about non-existing?
 		val (directories, archives)	=
 				fullClasspath.files.distinct filter { _.exists } partition { _.isDirectory }
 		
-		streams.log info s"copying classpath library jars to ${outputDirectory}"
 		val archiveAssets	=
 				archives map { source =>
 					val main	= products contains source
-					val	target	= outputDirectory / source.getName 
-					val fresh	= source newerThan target
-					if (fresh) {
-						IO copyFile (source, target) 
-					}
-					ClasspathAsset(main, fresh, target)
+					ClasspathAsset(main, source)
 				}
 		
-		// to find out about name clashes
-		val archiveTargets	= archiveAssets map { _.jar } toSet;
-		
-		streams.log info s"creating classpath directory jars in ${outputDirectory}"
-		val directoryAssets	=
-				directories.zipWithIndex map { case (source, index) =>
+		streams.log info s"creating classpath directory jars in $cacheDirectory}"
+		val (directoryAssets, freshFlags)	=
+				directories.zipWithIndex
+				.map { case (source, index) =>
 					val main	= products contains source
 					val cache	= streams.cacheDirectory / cacheName / index.toString
 					// ensure the jarfile does not clash with any of the archive assets from above 
@@ -80,19 +70,20 @@ object ClasspathPlugin extends Plugin {
 					def newTarget(resolve:Int):File	= {
 						// BETTER use the name of the project the classes really come from
 						val candidate	=
-								outputDirectory /
+								cacheDirectory /
 								(name + "-" + index + (if (resolve != 0) "-" + resolve else "") + ".jar")
-						if (archiveTargets contains candidate)	newTarget(resolve+1)
-						else									candidate
+						if (archives contains candidate)	newTarget(resolve+1)
+						else								candidate
 					}
 					val target	= newTarget(0)
 					val fresh	= ClasspathJarUtil jarDirectory (source, cache, target)
-					ClasspathAsset(main, fresh, target)
+					(ClasspathAsset(main, target), fresh)
 				}
+				.unzip
 				
-		val assets	= archiveAssets ++ directoryAssets
-		val (changed, unchanged)	= assets partition { _.updated }
-		streams.log info s"classpath jars: ${changed.size} new/changed, ${unchanged.size} unchanged"
+		val assets					= archiveAssets ++ directoryAssets
+		val (changed, unchanged)	= freshFlags partition identity
+		streams.log info s"classpath directory jars: ${changed.size} new/changed, ${unchanged.size} unchanged"
 		
 		assets
 	}
