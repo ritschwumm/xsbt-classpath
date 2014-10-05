@@ -7,8 +7,12 @@ import Keys.TaskStreams
 import Project.Initialize
 import classpath.ClasspathUtilities
 
+import xsbtUtil._
+
 object ClasspathPlugin extends Plugin {
-	private val cacheName	= "classpath"	// classpathAssets.key.label
+	// classpathAssets.key.label
+	private val jarDirName	= "classpath"
+	private val cacheName	= "classpath"
 	
 	//------------------------------------------------------------------------------
 	
@@ -16,23 +20,24 @@ object ClasspathPlugin extends Plugin {
 		main:Boolean,
 		jar:File
 	) {
-		val name:String	= jar.getName
+		val name:String					= jar.getName
+		def flatPathMapping:PathMapping	= (jar, name)
 	}
 	
 	val classpathAssets	= taskKey[Seq[ClasspathAsset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
-	val classpathCache	= settingKey[File]("where to cache jars made from directories in the classpath")
+	val classpathJarDir	= settingKey[File]("where to store jars made from directories in the classpath")
 		
 	// NOTE these need to be imported in build.sbt
 	lazy val classpathSettings:Seq[Def.Setting[_]]	=
 			Vector(
-				classpathCache	:= Keys.crossTarget.value / cacheName,
+				classpathJarDir	:= Keys.crossTarget.value / jarDirName,
 				classpathAssets	:= 
-						assetsTaskImpl(
+						assetsTask(
 							streams			= Keys.streams.value,
 							name			= Keys.name.value,
 							products		= (Keys.products in Runtime).value,
 							fullClasspath	= (Keys.fullClasspath in Runtime).value,
-							cacheDirectory	= classpathCache.value
+							jarDir			= classpathJarDir.value
 						)
 			)
 	
@@ -42,12 +47,12 @@ object ClasspathPlugin extends Plugin {
 	// BETTER use exportedProducts instead of products?
 	//	that's a Classpath aka Seq[Attributed[File]] instead of Seq[File]
 	//	Classpath#files and Build.data can extract the data
-	private def assetsTaskImpl(
+	private def assetsTask(
 		streams:TaskStreams,
 		name:String,
 		products:Seq[File],
 		fullClasspath:Classpath,
-		cacheDirectory:File
+		jarDir:File
 	):Seq[ClasspathAsset]	= {
 		// BETTER warn about non-existing?
 		val (directories, archives)	=
@@ -59,7 +64,7 @@ object ClasspathPlugin extends Plugin {
 					ClasspathAsset(main, source)
 				}
 		
-		streams.log info s"creating classpath directory jars in $cacheDirectory}"
+		streams.log info s"creating classpath directory jars in $jarDir}"
 		val (directoryAssets, freshFlags)	=
 				directories.zipWithIndex
 				.map { case (source, index) =>
@@ -70,7 +75,7 @@ object ClasspathPlugin extends Plugin {
 					def newTarget(resolve:Int):File	= {
 						// BETTER use the name of the project the classes really come from
 						val candidate	=
-								cacheDirectory /
+								jarDir /
 								(name + "-" + index + (if (resolve != 0) "-" + resolve else "") + ".jar")
 						if (archives contains candidate)	newTarget(resolve+1)
 						else								candidate

@@ -2,8 +2,14 @@ A helper plugin for sbt compiling jar files for everything on the classpath
 
 To build this code, get and install SBT from 
     https://github.com/sbt/sbt
+    
+Get and install this plugin before building:
+    https://github.com/ritschwumm/xsbt-util
 
 Build and publish the plugin:
     git clone git@github.com:ritschwumm/xsbt-classpath.git
     cd xsbt-classpath
     sbt publish-local
+    
+Add the plugin to your plugin project's build.sbt
+    addSbtPlugin("de.djini" % "xsbt-classpath"	% <version>)

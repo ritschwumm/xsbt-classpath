@@ -11,13 +11,15 @@ import Tracked.{inputChanged, outputChanged}
 import FileInfo.exists
 import FilesInfo.lastModified
 
+import xsbtUtil._
+
 // @see sbt.Package.apply
 object ClasspathJarUtil {
 	/** true if the jar has been created or overwritten because it was changed */
 	def jarDirectory(sourceDir:File, cacheDir:File, targetFile:File):Boolean	= {
 		implicit def stringMapEquiv:Equiv[Map[File,String]]	= defaultEquiv
 		
-		val sources	= (sourceDir ** -DirectoryFilter).get pair (Path relativeTo sourceDir)
+		val sources	= filePathMappingsIn(sourceDir)
 		
 		def makeJar(sources:Seq[(File,String)], jar:File) {
 			IO delete jar
@@ -29,7 +31,7 @@ object ClasspathJarUtil {
 					val sources :+: _ :+: HNil = inputs
 					outputChanged(cacheDir / "output") { (outChanged, jar:PlainFileInfo) =>
 						val fresh	= inChanged || outChanged
-						if (fresh) { makeJar(sources.toSeq, jar.file) }
+						if (fresh) { makeJar(sources.toVector, jar.file) }
 						fresh
 					}
 				}
