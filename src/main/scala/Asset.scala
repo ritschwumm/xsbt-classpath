@@ -2,7 +2,7 @@ package xsbtClasspath
 
 import sbt._
 
-import xsbtUtil._
+import xsbtUtil.types._
 
 case class Asset(
 	main:Boolean,

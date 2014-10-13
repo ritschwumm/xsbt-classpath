@@ -4,7 +4,7 @@ name			:= "xsbt-classpath"
 
 organization	:= "de.djini"
 
-version			:= "1.1.0"
+version			:= "1.2.0"
 
 scalacOptions	++= Seq(
 	"-deprecation",
@@ -19,4 +19,4 @@ scalacOptions	++= Seq(
 	"-feature"
 )
 
-addSbtPlugin("de.djini" % "xsbt-util"	% "0.1.0")
+addSbtPlugin("de.djini" % "xsbt-util"	% "0.2.0")

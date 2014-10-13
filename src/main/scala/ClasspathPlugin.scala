@@ -6,13 +6,12 @@ import sbt._
 import Keys.Classpath
 import Keys.TaskStreams
 import classpath.ClasspathUtilities
-
-import xsbtUtil._
+import plugins.JvmPlugin
 
 object Import {
-	val classpathAssets	= taskKey[Seq[Asset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
-	val classpathJarDir	= settingKey[File]("where to store jars made from directories in the classpath")
-	// lazy val Fuzz = config("fuzz") extend(Compile)
+	val classpathAssets		= taskKey[Seq[Asset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
+
+	val classpathBuildDir	= settingKey[File]("where to store jars made from directories in the classpath")
 }
 
 object ClasspathPlugin extends AutoPlugin {
@@ -20,30 +19,30 @@ object ClasspathPlugin extends AutoPlugin {
 	//## constants
 	
 	// classpathAssets.key.label
-	private val jarDirName	= "classpath"
 	private val cacheName	= "classpath"
 	
 	//------------------------------------------------------------------------------
 	//## exports
 	
-	override def requires:Plugins		= empty
+	override val requires:Plugins		= JvmPlugin
 	
-	override def trigger:PluginTrigger	= allRequirements
+	override val trigger:PluginTrigger	= allRequirements
 	
 	lazy val autoImport	= Import
 	import autoImport._
 	
-	override def projectSettings:Seq[Def.Setting[_]]	=
+	override lazy val projectSettings:Seq[Def.Setting[_]]	=
 			Vector(
-				classpathJarDir	:= Keys.crossTarget.value / jarDirName,
 				classpathAssets	:= 
 						assetsTask(
 							streams			= Keys.streams.value,
 							name			= Keys.name.value,
 							products		= (Keys.products in Runtime).value,
 							fullClasspath	= (Keys.fullClasspath in Runtime).value,
-							jarDir			= classpathJarDir.value
-						)
+							buildDir		= classpathBuildDir.value
+						),
+						
+				classpathBuildDir	:= Keys.crossTarget.value / "classpath"
 			)
 	
 	//------------------------------------------------------------------------------
@@ -58,7 +57,7 @@ object ClasspathPlugin extends AutoPlugin {
 		name:String,
 		products:Seq[File],
 		fullClasspath:Classpath,
-		jarDir:File
+		buildDir:File
 	):Seq[Asset]	= {
 		// BETTER warn about non-existing?
 		val (directories, archives)	=
@@ -70,7 +69,7 @@ object ClasspathPlugin extends AutoPlugin {
 					Asset(main, source)
 				}
 		
-		streams.log info s"creating classpath directory jars in $jarDir}"
+		streams.log info s"creating classpath directory jars in ${buildDir}"
 		val (directoryAssets, freshFlags)	=
 				directories.zipWithIndex
 				.map { case (source, index) =>
@@ -81,7 +80,7 @@ object ClasspathPlugin extends AutoPlugin {
 					def newTarget(resolve:Int):File	= {
 						// BETTER use the name of the project the classes really come from
 						val candidate	=
-								jarDir /
+								buildDir /
 								(name + "-" + index + (if (resolve != 0) "-" + resolve else "") + ".jar")
 						if (archives contains candidate)	newTarget(resolve+1)
 						else								candidate
