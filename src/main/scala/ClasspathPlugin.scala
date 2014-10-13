@@ -1,34 +1,39 @@
+package xsbtClasspath
+
 import scala.annotation.tailrec
 
 import sbt._
-
 import Keys.Classpath
 import Keys.TaskStreams
-import Project.Initialize
 import classpath.ClasspathUtilities
 
 import xsbtUtil._
 
-object ClasspathPlugin extends Plugin {
+object Import {
+	val classpathAssets	= taskKey[Seq[Asset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
+	val classpathJarDir	= settingKey[File]("where to store jars made from directories in the classpath")
+	// lazy val Fuzz = config("fuzz") extend(Compile)
+}
+
+object ClasspathPlugin extends AutoPlugin {
+	//------------------------------------------------------------------------------
+	//## constants
+	
 	// classpathAssets.key.label
 	private val jarDirName	= "classpath"
 	private val cacheName	= "classpath"
 	
 	//------------------------------------------------------------------------------
+	//## exports
 	
-	case class ClasspathAsset(
-		main:Boolean,
-		jar:File
-	) {
-		val name:String					= jar.getName
-		def flatPathMapping:PathMapping	= (jar, name)
-	}
+	override def requires:Plugins		= empty
 	
-	val classpathAssets	= taskKey[Seq[ClasspathAsset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
-	val classpathJarDir	= settingKey[File]("where to store jars made from directories in the classpath")
-		
-	// NOTE these need to be imported in build.sbt
-	lazy val classpathSettings:Seq[Def.Setting[_]]	=
+	override def trigger:PluginTrigger	= allRequirements
+	
+	lazy val autoImport	= Import
+	import autoImport._
+	
+	override def projectSettings:Seq[Def.Setting[_]]	=
 			Vector(
 				classpathJarDir	:= Keys.crossTarget.value / jarDirName,
 				classpathAssets	:= 
@@ -42,6 +47,7 @@ object ClasspathPlugin extends Plugin {
 			)
 	
 	//------------------------------------------------------------------------------
+	//## tasks
 	
 	// BETTER use dependencyClasspath and products/exportedProducts instead of fullClasspath?
 	// BETTER use exportedProducts instead of products?
@@ -53,7 +59,7 @@ object ClasspathPlugin extends Plugin {
 		products:Seq[File],
 		fullClasspath:Classpath,
 		jarDir:File
-	):Seq[ClasspathAsset]	= {
+	):Seq[Asset]	= {
 		// BETTER warn about non-existing?
 		val (directories, archives)	=
 				fullClasspath.files.distinct filter { _.exists } partition { _.isDirectory }
@@ -61,7 +67,7 @@ object ClasspathPlugin extends Plugin {
 		val archiveAssets	=
 				archives map { source =>
 					val main	= products contains source
-					ClasspathAsset(main, source)
+					Asset(main, source)
 				}
 		
 		streams.log info s"creating classpath directory jars in $jarDir}"
@@ -81,8 +87,8 @@ object ClasspathPlugin extends Plugin {
 						else								candidate
 					}
 					val target	= newTarget(0)
-					val fresh	= ClasspathJarUtil jarDirectory (source, cache, target)
-					(ClasspathAsset(main, target), fresh)
+					val fresh	= JarUtil jarDirectory (source, cache, target)
+					(Asset(main, target), fresh)
 				}
 				.unzip
 				

@@ -1,3 +1,5 @@
+package xsbtClasspath
+
 import sbt._
 
 import Predef.{conforms => _, _}
@@ -14,7 +16,7 @@ import FilesInfo.lastModified
 import xsbtUtil._
 
 // @see sbt.Package.apply
-object ClasspathJarUtil {
+object JarUtil {
 	/** true if the jar has been created or overwritten because it was changed */
 	def jarDirectory(sourceDir:File, cacheDir:File, targetFile:File):Boolean	= {
 		implicit def stringMapEquiv:Equiv[Map[File,String]]	= defaultEquiv
