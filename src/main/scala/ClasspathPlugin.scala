@@ -33,7 +33,7 @@ object ClasspathPlugin extends AutoPlugin {
 	
 	override lazy val projectSettings:Seq[Def.Setting[_]]	=
 			Vector(
-				classpathAssets	:= 
+				classpathAssets	:=
 						assetsTask(
 							streams			= Keys.streams.value,
 							name			= Keys.name.value,
@@ -75,7 +75,7 @@ object ClasspathPlugin extends AutoPlugin {
 				.map { case (source, index) =>
 					val main	= products contains source
 					val cache	= streams.cacheDirectory / cacheName / index.toString
-					// ensure the jarfile does not clash with any of the archive assets from above 
+					// ensure the jarfile does not clash with any of the archive assets from above
 					@tailrec
 					def newTarget(resolve:Int):File	= {
 						// BETTER use the name of the project the classes really come from
