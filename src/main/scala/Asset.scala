@@ -5,9 +5,9 @@ import sbt._
 import xsbtUtil.types._
 
 case class Asset(
-	main:Boolean,
-	jar:File
+	file:File,
+	name:String,
+	main:Boolean
 ) {
-	val name:String					= jar.getName
-	def flatPathMapping:PathMapping	= (jar, name)
+	def flatPathMapping:PathMapping	= (file, name)
 }

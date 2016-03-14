@@ -37,6 +37,7 @@ object ClasspathPlugin extends AutoPlugin {
 						assetsTask(
 							streams			= Keys.streams.value,
 							name			= Keys.name.value,
+							version			= Keys.version.value,
 							products		= (Keys.products in Runtime).value,
 							fullClasspath	= (Keys.fullClasspath in Runtime).value,
 							buildDir		= classpathBuildDir.value
@@ -48,53 +49,89 @@ object ClasspathPlugin extends AutoPlugin {
 	//------------------------------------------------------------------------------
 	//## tasks
 	
-	// BETTER use dependencyClasspath and products/exportedProducts instead of fullClasspath?
-	// BETTER use exportedProducts instead of products?
-	//	that's a Classpath aka Seq[Attributed[File]] instead of Seq[File]
-	//	Classpath#files and Build.data can extract the data
 	private def assetsTask(
 		streams:TaskStreams,
 		name:String,
+		version:String,
 		products:Seq[File],
 		fullClasspath:Classpath,
 		buildDir:File
 	):Seq[Asset]	= {
-		// BETTER warn about non-existing?
-		val (directories, archives)	=
-				fullClasspath.files.distinct filter { _.exists } partition { _.isDirectory }
+		case class RawAsset(file:File, name:String, main:Boolean, archive:Boolean)
 		
-		val archiveAssets	=
-				archives map { source =>
-					val main	= products contains source
-					Asset(main, source)
+		def rawAsset(attrd:Attributed[File]):Option[RawAsset]	= {
+			val source	= attrd.data
+			val archive	= !source.isDirectory
+			if (source.exists) {
+				Some(
+					RawAsset(
+						file	= source,
+						name	= if (archive) source.getName else syntheticName(attrd),
+						main	= products contains source,
+						archive	= archive
+					)
+				)
+			}
+			else {
+				streams.log warn s"classpath component $source does not exist"
+				None
+			}
+		}
+		
+		def syntheticName(dir:Attributed[File]):String	= {
+			val moduleId	= dir get	Keys.moduleID.key
+			val artifact	= dir get	Keys.artifact.key
+			val aName		= moduleId map { _.name			} getOrElse name
+			val aVersion	= moduleId map { _.revision		} getOrElse version
+			val aExtension	= artifact map { _.extension	} getOrElse "jar"
+			aName + "-" + aVersion + "." + aExtension
+		}
+		
+		val (archives, directories)	=
+				fullClasspath flatMap rawAsset partition { _.archive }
+		
+		val archiveAssets:Seq[Asset]	=
+				archives map { raw =>
+					Asset(raw.file, raw.name, raw.main)
 				}
 		
 		streams.log info s"creating classpath directory jars in ${buildDir}"
 		val (directoryAssets, freshFlags)	=
 				directories.zipWithIndex
-				.map { case (source, index) =>
-					val main	= products contains source
+				.map { case (raw, index) =>
 					val cache	= streams.cacheDirectory / cacheName / index.toString
-					// ensure the jarfile does not clash with any of the archive assets from above
-					@tailrec
-					def newTarget(resolve:Int):File	= {
-						// BETTER use the name of the project the classes really come from
-						val candidate	=
-								buildDir /
-								(name + "-" + index + (if (resolve != 0) "-" + resolve else "") + ".jar")
-						if (archives contains candidate)	newTarget(resolve+1)
-						else								candidate
-					}
-					val target	= newTarget(0)
-					val fresh	= JarUtil jarDirectory (source, cache, target)
-					(Asset(main, target), fresh)
+					val target	= buildDir / (index.toString + ".jar")
+					val fresh	= JarUtil jarDirectory (raw.file, cache, target)
+					val asset	= Asset(target, raw.name, raw.main)
+					asset -> fresh
 				}
 				.unzip
 				
-		val assets					= archiveAssets ++ directoryAssets
 		val (changed, unchanged)	= freshFlags partition identity
 		streams.log info s"classpath directory jars: ${changed.size} new/changed, ${unchanged.size} unchanged"
 		
-		assets
+		def disambiguate(name:String, used:Set[String]):String	= {
+			def loop(index:Int):String	= {
+				val prefix	= if (index == 0) "" else index.toString + "-"
+				val cand	= prefix + name
+				if (used contains cand)	loop(index+1)
+				else					cand
+			}
+			loop(0)
+		}
+				
+		def unclash(assets:Seq[Asset], used:Set[String]):Seq[Asset]	=
+				assets match {
+					case head +: tail	=>
+						val newName		= disambiguate(head.name, used)
+						val newAsset	= head copy (name = newName)
+						val newUsed		= used + newName
+						newAsset +: unclash(tail, newUsed)
+					case _				=>
+						Vector.empty
+				}
+		
+		// ensure asset names are unambiguous
+		unclash(archiveAssets ++ directoryAssets, Set.empty)
 	}
 }
