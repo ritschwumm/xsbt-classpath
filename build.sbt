@@ -2,7 +2,7 @@ sbtPlugin		:= true
 
 name			:= "xsbt-classpath"
 organization	:= "de.djini"
-version			:= "1.9.0"
+version			:= "1.10.0"
 
 scalacOptions	++= Seq(
 	"-deprecation",
@@ -19,4 +19,4 @@ scalacOptions	++= Seq(
 )
 
 conflictManager	:= ConflictManager.strict
-addSbtPlugin("de.djini" % "xsbt-util"	% "0.8.0")
+addSbtPlugin("de.djini" % "xsbt-util"	% "0.9.0")
