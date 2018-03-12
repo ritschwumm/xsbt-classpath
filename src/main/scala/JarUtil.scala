@@ -2,16 +2,10 @@ package xsbtClasspath
 
 import sbt._
 
-import Predef.{conforms => _, _}
-import collection.JavaConversions._
-import Types.:+:
-
-import sbinary.{DefaultProtocol,Format}
-import DefaultProtocol.{FileFormat, immutableMapFormat, StringFormat, UnitFormat}
-import Cache.{defaultEquiv, hConsCache, hNilCache, streamFormat, wrapIn}
+import sbt.internal.util.HListFormats._
+import sbt.util.FileInfo.{ exists, lastModified }
+import sbt.util.CacheImplicits._
 import Tracked.{inputChanged, outputChanged}
-import FileInfo.exists
-import FilesInfo.lastModified
 
 import xsbtUtil.util.find
 
@@ -19,8 +13,6 @@ import xsbtUtil.util.find
 object JarUtil {
 	/** true when the jar has been created or overwritten because it was changed */
 	def jarDirectory(sourceDir:File, cacheDir:File, targetFile:File):Boolean	= {
-		implicit def stringMapEquiv:Equiv[Map[File,String]]	= defaultEquiv
-		
 		val sources	= find filesMapped sourceDir
 		
 		def makeJar(sources:Seq[(File,String)], jar:File) {
@@ -40,7 +32,7 @@ object JarUtil {
 					}
 				}
 		val sourcesMap		= sources.toMap
-		val inputs			= sourcesMap :+: lastModified(sourcesMap.keySet.toSet) :+: HNil
+		val inputs			= sourcesMap :+: lastModified(sourcesMap.keySet) :+: HNil
 		val fresh:Boolean	= cachedMakeJar(inputs) { () => exists(targetFile) }
 		fresh
 	}

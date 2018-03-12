@@ -5,7 +5,7 @@ import scala.annotation.tailrec
 import sbt._
 import Keys.Classpath
 import Keys.TaskStreams
-import classpath.ClasspathUtilities
+//import classpath.ClasspathUtilities
 import plugins.JvmPlugin
 
 object Import {
