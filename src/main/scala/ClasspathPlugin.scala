@@ -9,8 +9,6 @@ import plugins.JvmPlugin
 
 object Import {
 	val classpathAssets		= taskKey[Seq[Asset]]("library jars and jarred directories from the classpath as ClasspathAsset items")
-
-	val classpathBuildDir	= settingKey[File]("where to store jars made from directories in the classpath")
 }
 
 object ClasspathPlugin extends AutoPlugin {
@@ -39,10 +37,7 @@ object ClasspathPlugin extends AutoPlugin {
 					version				= Keys.version.value,
 					exportedProductJars	= (Runtime / Keys.exportedProductJars).value,
 					fullClasspathAsJars	= (Runtime / Keys.fullClasspathAsJars).value,
-					buildDir			= classpathBuildDir.value
 				),
-
-			classpathBuildDir	:= Keys.crossTarget.value / "classpath"
 		)
 
 	//------------------------------------------------------------------------------
@@ -54,7 +49,6 @@ object ClasspathPlugin extends AutoPlugin {
 		version:String,
 		exportedProductJars:Classpath,
 		fullClasspathAsJars:Classpath,
-		buildDir:File
 	):Seq[Asset]	= {
 		def rawAsset(attrd:Attributed[File]):Option[Asset]	= {
 			val source	= attrd.data

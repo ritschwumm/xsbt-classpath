@@ -2,7 +2,7 @@ sbtPlugin		:= true
 
 name			:= "xsbt-classpath"
 organization	:= "de.djini"
-version			:= "2.6.0"
+version			:= "2.7.0"
 
 scalacOptions	++= Seq(
 	"-feature",
